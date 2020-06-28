@@ -22,6 +22,7 @@ from insiderlist.issuers.managers import IssuerManagerMixin
 from insiderlist.contacts.models import Contact
 from insiderlist.issuers.mixins import (IssuerModelMixin)
 from anymail.message import AnymailStatus
+from django.contrib.contenttypes.models import ContentType
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
