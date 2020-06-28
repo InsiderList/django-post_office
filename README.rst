@@ -1,3 +1,22 @@
+Forked from https://github.com/ui/django-post_office to add compatibility with InsiderList.
+
+28.06.20
+
+`admin.py`
+
+- Added `Issuer` as list item
+
+`mail.py`
+
+- Added `mark_safe` to `Email` `subject`
+
+`models.py`
+
+- Added IssuerModelMixin and IssuerManager mixin to `Email`
+- Added integration with AnyMail, with `anymail_message_id`
+- Added link to membership (if applicable) via `membership_content_type`, `membership_object_id`, `membership_obj`
+- Added foreignkey to `Contact` via `recipients`
+
 ==================
 Django Post Office
 ==================
@@ -120,7 +139,7 @@ This will schedule a task at specific times. Use ``-1`` to signal any time, it c
 in cron.
 
 Please note that ``uwsgidecorators`` are available only, if the application has been started
-with **uWSGI**. However, Django's internal ``./manange.py runserver`` also access this file,
+with **uWSGI**. However, Django's internal ``./manage.py runserver`` also access this file,
 therefore wrap the block into an exception handler as shown above.
 
 This configuration is very useful in environments, such as Docker containers, where you

@@ -18,12 +18,16 @@ from .connections import connections
 from .settings import context_field_class, get_log_level, get_template_engine, get_override_recipients
 from .validators import validate_email_with_name, validate_template_syntax
 
+from insiderlist.issuers.managers import IssuerManagerMixin
+from insiderlist.contacts.models import Contact
+from insiderlist.issuers.mixins import (IssuerModelMixin)
+from anymail.message import AnymailStatus
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
 
 
-class Email(models.Model):
+class Email(IssuerModelMixin):
     """
     A model to hold email information.
     """
@@ -65,7 +69,28 @@ class Email(models.Model):
     backend_alias = models.CharField(_('Backend alias'), blank=True, default='',
                                      max_length=64)
 
-    class Meta:
+    # Anymail fields
+    anymail_message_id = models.CharField(
+        _("Anymail Message ID"),
+        max_length=255,
+        blank=True,
+        null=True,
+        unique=True
+    )
+
+    # link to membership (if applicable)
+    membership_content_type = models.ForeignKey(
+        ContentType, related_name='list',
+        on_delete=models.CASCADE, null=True, blank=True
+    )
+    membership_object_id = models.PositiveIntegerField(null=True, blank=True)
+    membership_obj = GenericForeignKey('membership_content_type', 'membership_object_id')
+
+    recipients = models.ManyToManyField(
+        Contact, related_name='recipient_email'
+    )
+
+    class Meta(IssuerModelMixin.Meta):
         app_label = 'post_office'
         verbose_name = pgettext_lazy("Email address", "Email")
         verbose_name_plural = pgettext_lazy("Email addresses", "Emails")
@@ -73,8 +98,11 @@ class Email(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._cached_email_message = None
+        self.anymail_status = AnymailStatus()
 
     def __str__(self):
+        if self.anymail_message_id:
+            return self.anymail_message_id
         return '%s' % self.to
 
     def email_message(self):
@@ -154,7 +182,9 @@ class Email(models.Model):
         Sends email and log the result.
         """
         try:
-            self.email_message().send()
+            msg = self.email_message()
+            msg.send()
+            anymail_message_id = msg.anymail_status.message_id
             status = STATUS.sent
             message = ''
             exception_type = ''
@@ -170,7 +200,8 @@ class Email(models.Model):
 
         if commit:
             self.status = status
-            self.save(update_fields=['status'])
+            self.anymail_message_id = anymail_message_id
+            self.save(update_fields=['status', 'anymail_message_id'])
 
             if log_level is None:
                 log_level = get_log_level()
@@ -192,7 +223,7 @@ class Email(models.Model):
         return super().save(*args, **kwargs)
 
 
-class Log(models.Model):
+class Log(IssuerModelMixin):
     """
     A model to record sending email sending activities.
     """
@@ -206,7 +237,7 @@ class Log(models.Model):
     exception_type = models.CharField(_('Exception type'), max_length=255, blank=True)
     message = models.TextField(_('Message'))
 
-    class Meta:
+    class Meta(IssuerModelMixin.Meta):
         app_label = 'post_office'
         verbose_name = _("Log")
         verbose_name_plural = _("Logs")
@@ -215,12 +246,13 @@ class Log(models.Model):
         return str(self.date)
 
 
-class EmailTemplateManager(models.Manager):
+class EmailTemplateManager(IssuerManagerMixin):
+
     def get_by_natural_key(self, name, language, default_template):
         return self.get(name=name, language=language, default_template=default_template)
 
 
-class EmailTemplate(models.Model):
+class EmailTemplate(IssuerModelMixin):
     """
     Model to hold template information from db
     """
@@ -244,12 +276,17 @@ class EmailTemplate(models.Model):
 
     objects = EmailTemplateManager()
 
-    class Meta:
+    class Meta(IssuerModelMixin.Meta):
         app_label = 'post_office'
-        unique_together = ('name', 'language', 'default_template')
         verbose_name = _("Email Template")
         verbose_name_plural = _("Email Templates")
         ordering = ['name']
+        constraints = IssuerModelMixin._meta.constraints + [
+            models.UniqueConstraint(
+                fields=['name', 'language', 'default_template'],
+                name="unique_template_language"
+            ),
+        ]
 
     def __str__(self):
         return '%s %s' % (self.name, self.language)
@@ -279,7 +316,7 @@ def get_upload_path(instance, filename):
                         str(date.month), str(date.day), filename)
 
 
-class Attachment(models.Model):
+class Attachment(IssuerModelMixin):
     """
     A model describing an email attachment.
     """
@@ -290,7 +327,7 @@ class Attachment(models.Model):
     mimetype = models.CharField(max_length=255, default='', blank=True)
     headers = JSONField(_('Headers'), blank=True, null=True)
 
-    class Meta:
+    class Meta(IssuerModelMixin.Meta):
         app_label = 'post_office'
         verbose_name = _("Attachment")
         verbose_name_plural = _("Attachments")

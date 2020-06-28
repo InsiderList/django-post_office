@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import connection as db_connection
 from django.db.models import Q
 from django.template import Context, Template
+from django.utils.safestring import mark_safe
 from django.utils.timezone import now
 
 from .connections import connections
@@ -70,7 +71,7 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             to=recipients,
             cc=cc,
             bcc=bcc,
-            subject=subject,
+            subject=mark_safe(subject),
             message=message,
             html_message=html_message,
             scheduled_time=scheduled_time,
