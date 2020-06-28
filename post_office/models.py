@@ -275,6 +275,7 @@ class EmailTemplate(IssuerModelMixin):
         default='', blank=True)
     default_template = models.ForeignKey('self', related_name='translated_templates',
         null=True, default=None, verbose_name=_('Default template'), on_delete=models.CASCADE)
+    context_variables = JSONField(null=True, blank=True)
 
     objects = EmailTemplateManager()
 
