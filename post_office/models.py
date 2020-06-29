@@ -24,6 +24,7 @@ from insiderlist.issuers.mixins import (IssuerModelMixin)
 from anymail.message import AnymailStatus
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from froala_editor.fields import FroalaField
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
@@ -267,7 +268,7 @@ class EmailTemplate(IssuerModelMixin):
         verbose_name=_("Subject"), validators=[validate_template_syntax])
     content = models.TextField(blank=True,
         verbose_name=_("Content"), validators=[validate_template_syntax])
-    html_content = models.TextField(blank=True,
+    html_content = FroalaField(blank=True,
         verbose_name=_("HTML content"), validators=[validate_template_syntax])
     language = models.CharField(max_length=12,
         verbose_name=_("Language"),
