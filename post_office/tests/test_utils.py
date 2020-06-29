@@ -127,7 +127,7 @@ class UtilsTest(TestCase):
         """
         Check that split emails correctly divide email lists for multiprocessing
         """
-        for i in range(225):
+        for _ in range(225):
             Email.objects.create(from_email='from@example.com', to=['to@example.com'])
         expected_size = [57, 56, 56, 56]
         email_list = split_emails(Email.objects.all(), 4)

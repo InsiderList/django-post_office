@@ -132,9 +132,8 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
         if isinstance(template, EmailTemplate):
             template = template
             # If language is specified, ensure template uses the right language
-            if language:
-                if template.language != language:
-                    template = template.translated_templates.get(language=language)
+            if language and template.language != language:
+                template = template.translated_templates.get(language=language)
         else:
             template = get_email_template(template, language)
 
@@ -161,9 +160,7 @@ def send_many(kwargs_list):
     Internally, it uses Django's bulk_create command for efficiency reasons.
     Currently send_many() can't be used to send emails with priority = 'now'.
     """
-    emails = []
-    for kwargs in kwargs_list:
-        emails.append(send(commit=False, **kwargs))
+    emails = [send(commit=False, **kwargs) for kwargs in kwargs_list]
     Email.objects.bulk_create(emails)
 
 
@@ -210,8 +207,8 @@ def send_queued(processes=1, log_level=None):
             results = pool.map(_send_bulk, email_lists)
             pool.terminate()
 
-            total_sent = sum([result[0] for result in results])
-            total_failed = sum([result[1] for result in results])
+            total_sent = sum(result[0] for result in results)
+            total_failed = sum(result[1] for result in results)
     message = '%s emails attempted, %s sent, %s failed' % (
         total_email,
         total_sent,
