@@ -24,7 +24,7 @@ logger = setup_loghandlers("INFO")
 def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
            html_message='', context=None, scheduled_time=None, headers=None,
            template=None, priority=None, render_on_delivery=False, commit=True,
-           backend=''):
+           backend='', membership_obj=None):
     """
     Creates an email from supplied keyword arguments. If template is
     specified, email subject and content will be rendered during delivery.
@@ -51,7 +51,8 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             bcc=bcc,
             scheduled_time=scheduled_time,
             headers=headers, priority=priority, status=status,
-            context=context, template=template, backend_alias=backend
+            context=context, template=template, backend_alias=backend,
+            membership_obj=membership_obj
         )
 
     else:
@@ -76,7 +77,8 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             html_message=html_message,
             scheduled_time=scheduled_time,
             headers=headers, priority=priority, status=status,
-            backend_alias=backend
+            backend_alias=backend,
+            membership_obj=membership_obj
         )
 
     if commit:
@@ -89,7 +91,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
          message='', html_message='', scheduled_time=None, headers=None,
          priority=None, attachments=None, render_on_delivery=False,
          log_level=None, commit=True, cc=None, bcc=None, language='',
-         backend=''):
+         backend='', membership_obj=membership_obj):
 
     try:
         recipients = parse_emails(recipients)
@@ -143,7 +145,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
 
     email = create(sender, recipients, cc, bcc, subject, message, html_message,
                    context, scheduled_time, headers, template, priority,
-                   render_on_delivery, commit=commit, backend=backend)
+                   render_on_delivery, commit=commit, backend=backend, membership_obj=membership_obj)
 
     if attachments:
         attachments = create_attachments(attachments)
