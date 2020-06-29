@@ -1,3 +1,21 @@
+==================
+Fork
+==================
+
+|Quality Gate Status| |Security Rating| |Reliability Rating|
+
+|Lines of Code| |Duplicated Lines (%)|
+
+.. |Quality Gate Status| image:: https://sonarcloud.io/api/project_badges/measure?project=InsiderList_django-post_office&metric=alert_status
+   :target: https://sonarcloud.io/dashboard?id=InsiderList_django-post_office
+.. |Security Rating| image:: https://sonarcloud.io/api/project_badges/measure?project=InsiderList_django-post_office&metric=security_rating
+.. |Reliability Rating| image:: https://sonarcloud.io/api/project_badges/measure?project=InsiderList_django-post_office&metric=reliability_rating
+   :target: https://sonarcloud.io/dashboard?id=InsiderList_django-post_office
+.. |Lines of Code| image:: https://sonarcloud.io/api/project_badges/measure?project=InsiderList_django-post_office&metric=ncloc
+   :target: https://sonarcloud.io/dashboard?id=InsiderList_django-post_office
+.. |Duplicated Lines (%)| image:: https://sonarcloud.io/api/project_badges/measure?project=InsiderList_django-post_office&metric=duplicated_lines_density
+   :target: https://sonarcloud.io/dashboard?id=InsiderList_django-post_office
+
 Forked from https://github.com/ui/django-post_office to add compatibility with InsiderList.
 
 28.06.20
