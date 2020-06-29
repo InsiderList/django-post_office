@@ -91,7 +91,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
          message='', html_message='', scheduled_time=None, headers=None,
          priority=None, attachments=None, render_on_delivery=False,
          log_level=None, commit=True, cc=None, bcc=None, language='',
-         backend='', membership_obj=membership_obj):
+         backend='', membership_obj=None):
 
     try:
         recipients = parse_emails(recipients)
