@@ -17,7 +17,9 @@ from .utils import (get_email_template, parse_emails, parse_priority,
                     split_emails, create_attachments)
 from .logutils import setup_loghandlers
 from .signals import email_queued
+
 from django.utils.safestring import mark_safe
+
 
 logger = setup_loghandlers("INFO")
 

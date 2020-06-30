@@ -131,7 +131,6 @@ You can schedule this management command to run regularly via cron::
     * * * * * (/usr/bin/python manage.py send_queued_mail >> send_mail.log 2>&1)
 
 
-
 Usage
 =====
 
@@ -667,6 +666,7 @@ Defaults to Not Activated. Auto requeue failed email with time interval
      'MAX_RETRIES': 4
      'RETRY_INTERVAL': datetime.timedelta(minutes=15)
     }
+
 
 
 Log Level

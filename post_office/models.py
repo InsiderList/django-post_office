@@ -2,12 +2,13 @@ import os
 
 from collections import namedtuple
 from uuid import uuid4
-
 from email.mime.nonmultipart import MIMENonMultipart
+
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.db import models
 from django.utils.encoding import smart_str
-from django.utils.translation import pgettext_lazy, ugettext_lazy as _
+from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from django.utils import timezone
 from jsonfield import JSONField
 
@@ -27,7 +28,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from froala_editor.fields import FroalaField
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
-STATUS = namedtuple('STATUS', 'sent failed queued')._make(range(3))
+STATUS = namedtuple('STATUS', 'sent failed queued requeued')._make(range(4))
 
 
 class Email(IssuerModelMixin):
@@ -38,7 +39,7 @@ class Email(IssuerModelMixin):
     PRIORITY_CHOICES = [(PRIORITY.low, _("low")), (PRIORITY.medium, _("medium")),
                         (PRIORITY.high, _("high")), (PRIORITY.now, _("now"))]
     STATUS_CHOICES = [(STATUS.sent, _("sent")), (STATUS.failed, _("failed")),
-                      (STATUS.queued, _("queued"))]
+                      (STATUS.queued, _("queued")), (STATUS.requeued, _("requeued"))]
 
     from_email = models.CharField(_("Email From"), max_length=254,
                                   validators=[validate_email_with_name])
@@ -62,14 +63,17 @@ class Email(IssuerModelMixin):
                                                 blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     last_updated = models.DateTimeField(db_index=True, auto_now=True)
-    scheduled_time = models.DateTimeField(_('The scheduled sending time'),
+    scheduled_time = models.DateTimeField(_("The scheduled sending time"),
                                           blank=True, null=True, db_index=True)
+    expires_at = models.DateTimeField(_("Email won't be sent after this timestamp"),
+                                      blank=True, null=True)
+    number_of_retries = models.PositiveIntegerField(null=True, blank=True)
     headers = JSONField(_('Headers'), blank=True, null=True)
     template = models.ForeignKey('post_office.EmailTemplate', blank=True,
-                                 null=True, verbose_name=_('Email template'),
+                                 null=True, verbose_name=_("Email template"),
                                  on_delete=models.CASCADE)
     context = context_field_class(_('Context'), blank=True, null=True)
-    backend_alias = models.CharField(_('Backend alias'), blank=True, default='',
+    backend_alias = models.CharField(_("Backend alias"), blank=True, default='',
                                      max_length=64)
 
     # Anymail fields
@@ -139,19 +143,25 @@ class Email(IssuerModelMixin):
             html_message = self.html_message
 
         connection = connections[self.backend_alias or 'default']
+        if isinstance(self.headers, dict) or self.expires_at:
+            headers = dict(self.headers or {})
+            if self.expires_at:
+                headers.update({'Expires': self.expires_at.strftime("%a, %-d %b %H:%M:%S %z")})
+        else:
+            headers = None
 
         if html_message:
             if plaintext_message:
                 msg = EmailMultiAlternatives(
                     subject=subject, body=plaintext_message, from_email=self.from_email,
                     to=self.to, bcc=self.bcc, cc=self.cc,
-                    headers=self.headers, connection=connection)
+                    headers=headers, connection=connection)
                 msg.attach_alternative(html_message, "text/html")
             else:
                 msg = EmailMultiAlternatives(
                     subject=subject, body=html_message, from_email=self.from_email,
                     to=self.to, bcc=self.bcc, cc=self.cc,
-                    headers=self.headers, connection=connection)
+                    headers=headers, connection=connection)
                 msg.content_subtype = 'html'
             if hasattr(multipart_template, 'attach_related'):
                 multipart_template.attach_related(msg)
@@ -160,7 +170,7 @@ class Email(IssuerModelMixin):
             msg = EmailMessage(
                 subject=subject, body=plaintext_message, from_email=self.from_email,
                 to=self.to, bcc=self.bcc, cc=self.cc,
-                headers=self.headers, connection=connection)
+                headers=headers, connection=connection)
 
         for attachment in self.attachments.all():
             if attachment.headers:
@@ -220,6 +230,10 @@ class Email(IssuerModelMixin):
                                  exception_type=exception_type)
 
         return status
+
+    def clean(self):
+        if self.scheduled_time and self.expires_at and self.scheduled_time > self.expires_at:
+            raise ValidationError(_("The scheduled time may not be later than the expires time."))
 
     def save(self, *args, **kwargs):
         self.full_clean()
