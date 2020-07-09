@@ -87,8 +87,6 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
         )
 
     if commit:
-        tenant = get_current_tenant()
-        print('email tenant', tenant)
         email.save()
 
     return email
