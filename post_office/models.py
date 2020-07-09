@@ -26,6 +26,7 @@ from anymail.message import AnymailStatus
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from froala_editor.fields import FroalaField
+from django_multitenant.utils import get_current_tenant_value
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued requeued')._make(range(4))
@@ -236,7 +237,10 @@ class Email(IssuerModelMixin):
             raise ValidationError(_("The scheduled time may not be later than the expires time."))
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # Exclude the issuer field as django_multitenant sets it as the
+        # tenant_field in the the  save method (unless passed manually) and
+        # so will be null and trip an integrity error.
+        self.full_clean(exclude=['issuer'])
         return super().save(*args, **kwargs)
 
 
