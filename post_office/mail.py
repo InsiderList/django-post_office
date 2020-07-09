@@ -17,7 +17,7 @@ from .utils import (get_email_template, parse_emails, parse_priority,
                     split_emails, create_attachments)
 from .logutils import setup_loghandlers
 from .signals import email_queued
-
+from django_multitenant.utils import get_current_tenant, set_current_tenant
 from django.utils.safestring import mark_safe
 
 
@@ -87,6 +87,8 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
         )
 
     if commit:
+        tenant = get_current_tenant()
+        print('email tenant', tenant)
         email.save()
 
     return email
