@@ -22,6 +22,7 @@ from .validators import validate_email_with_name, validate_template_syntax
 from insiderlist.issuers.managers import IssuerManagerMixin
 from insiderlist.contacts.models import Contact
 from insiderlist.issuers.mixins import (IssuerModelMixin)
+from insiderlist.issuers.models import Issuer
 from anymail.message import AnymailStatus
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -279,6 +280,9 @@ class EmailTemplate(IssuerModelMixin):
     """
     Model to hold template information from db
     """
+    # Some templates are administrative (e.g. add_user) and do not have
+    # issuers; therefore override and allow issuer null=True
+    issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(_('Name'), max_length=255, help_text=_("e.g: 'welcome_email'"))
     description = models.TextField(_('Description'), blank=True,
                                    help_text=_("Description of this template."))
