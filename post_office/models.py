@@ -37,7 +37,9 @@ class Email(IssuerModelMixin):
     """
     A model to hold email information.
     """
-
+    # Some templates are administrative (e.g. add_user) and do not have
+    # issuers; therefore override and allow issuer null=True
+    issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE, null=True, blank=True)
     PRIORITY_CHOICES = [(PRIORITY.low, _("low")), (PRIORITY.medium, _("medium")),
                         (PRIORITY.high, _("high")), (PRIORITY.now, _("now"))]
     STATUS_CHOICES = [(STATUS.sent, _("sent")), (STATUS.failed, _("failed")),
@@ -251,7 +253,9 @@ class Log(IssuerModelMixin):
     """
     A model to record sending email sending activities.
     """
-
+    # Some templates are administrative (e.g. add_user) and do not have
+    # issuers; therefore override and allow issuer null=True
+    issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE, null=True, blank=True)
     STATUS_CHOICES = [(STATUS.sent, _("sent")), (STATUS.failed, _("failed"))]
 
     email = models.ForeignKey(Email, editable=False, related_name='logs',
@@ -348,6 +352,9 @@ class Attachment(IssuerModelMixin):
     """
     A model describing an email attachment.
     """
+    # Some templates are administrative (e.g. add_user) and do not have
+    # issuers; therefore override and allow issuer null=True
+    issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE, null=True, blank=True)
     file = models.FileField(_('File'), upload_to=get_upload_path)
     name = models.CharField(_('Name'), max_length=255, help_text=_("The original filename"))
     emails = models.ManyToManyField(Email, related_name='attachments',
