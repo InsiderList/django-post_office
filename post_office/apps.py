@@ -7,8 +7,10 @@ class PostOfficeConfig(AppConfig):
     verbose_name = _("Post Office")
 
     def ready(self):
-        from post_office import tasks
-        from post_office.signals import email_queued
+        pass
+        # from post_office.signals import email_queued
 
-        if hasattr(tasks, 'queued_mail_handler'):
-            email_queued.connect(tasks.queued_mail_handler)
+        # TODO: This signal causes mail.send() to hang, so disable for
+        #  now as it's unusued
+        # if hasattr(tasks, 'queued_mail_handler'):
+            # email_queued.connect(tasks.queued_mail_handler)
