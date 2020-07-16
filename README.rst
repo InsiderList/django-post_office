@@ -30,7 +30,7 @@ Forked from https://github.com/ui/django-post_office to add compatibility with I
 
 `models.py`
 
-- Added IssuerModelMixin and IssuerManager mixin to `Email`
+- Added IssuerAbstractModel and IssuerManager mixin to `Email`
 - Added integration with AnyMail, with `anymail_message_id`
 - Added link to membership (if applicable) via `membership_content_type`, `membership_object_id`, `membership_obj`
 - Added foreignkey to `Contact` via `recipients`
