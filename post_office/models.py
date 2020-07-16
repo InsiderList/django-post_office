@@ -203,16 +203,21 @@ class Email(IssuerModelMixin):
         try:
             msg = self.email_message()
             msg.send()
-            anymail_message_id = msg.anymail_status.message_id
             status = STATUS.sent
             message = ''
             exception_type = ''
         except Exception as e:
+            msg = None
             status = STATUS.failed
             message = str(e)
             exception_type = type(e).__name__
-            anymail_message_id = None
             print('Django post_office send failed:', message)
+
+        try:
+            anymail_message_id = msg.anymail_status.message_id
+        except Exception as e:
+            anymail_message_id = None
+            print('Django post_office anymail_status exception:', str(e))
 
             # If run in a bulk sending mode, reraise and let the outer
             # layer handle the exception
