@@ -113,7 +113,12 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
         raise ValidationError('bcc: %s' % e.message)
 
     if sender is None:
-        sender = settings.DEFAULT_FROM_EMAIL
+        sender = settings.POST_OFFICE_DEFAULT_DISPLAY_EMAIL
+
+    issuer = get_current_tenant()
+    if issuer and sender is None:
+        sender = issuer.default_display_email()
+
 
     priority = parse_priority(priority)
 
