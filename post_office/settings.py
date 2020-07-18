@@ -111,6 +111,9 @@ def get_max_retries():
 def get_retry_timedelta():
     return get_config().get('RETRY_INTERVAL', datetime.timedelta(minutes=15))
 
+def get_default_from_email():
+    return get_config().get('DEFAULT_FROM_EMAIL', settings.DEFAULT_FROM_EMAIL)
+
 
 CONTEXT_FIELD_CLASS = get_config().get('CONTEXT_FIELD_CLASS',
                                        'jsonfield.JSONField')

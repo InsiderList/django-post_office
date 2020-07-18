@@ -16,6 +16,9 @@ from django.utils.html import format_html
 from django.utils.text import Truncator
 from django.utils.translation import gettext_lazy as _
 
+from insiderlist.issuers.admin import AllTenantsMixin
+
+from insiderlist.memberships.models import EventMembership
 from .fields import CommaSeparatedEmailField
 from .models import Attachment, Log, Email, EmailTemplate, STATUS
 from .sanitizer import clean_html
@@ -27,8 +30,11 @@ def get_message_preview(instance):
 
 get_message_preview.short_description = 'Message'
 
+class MembershipInline(AllTenantsMixin, admin.TabularInline):
+    model = EventMembership.emails.through
+    extra = 0
 
-class AttachmentInline(admin.StackedInline):
+class AttachmentInline(AllTenantsMixin, admin.StackedInline):
     model = Attachment.emails.through
     extra = 0
 
@@ -44,10 +50,12 @@ class AttachmentInline(admin.StackedInline):
         return queryset.exclude(id__in=inlined_attachments)
 
 
-class LogInline(admin.TabularInline):
+class LogInline(AllTenantsMixin, admin.TabularInline):
     model = Log
-    readonly_fields = fields = ['date', 'status', 'exception_type', 'message']
+    fields = ['id', 'date', 'status', 'event_type']
+    readonly_fields = ['date', 'status']
     can_delete = False
+    show_change_link = True
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -79,13 +87,14 @@ requeue.short_description = 'Requeue selected emails'
 
 
 @admin.register(Email)
-class EmailAdmin(admin.ModelAdmin):
-    list_display = ['id', 'to_display', 'shortened_subject', 'status', 'last_updated', 'scheduled_time', 'use_template']
+class EmailAdmin(AllTenantsMixin, admin.ModelAdmin):
+    list_display = ['id', 'issuer', 'to_display', 'shortened_subject', 'status',
+                    'last_updated', 'scheduled_time', 'use_template']
     search_fields = ['to', 'subject']
     readonly_fields = ['render_subject', 'render_plaintext_body',  'render_html_body']
     date_hierarchy = 'last_updated'
-    inlines = [AttachmentInline, LogInline]
-    list_filter = ['status', 'template__language', 'template__name']
+    inlines = [AttachmentInline, LogInline, MembershipInline]
+    list_filter = ['issuer', 'status', 'template__language', 'template__name']
     formfield_overrides = {
         CommaSeparatedEmailField: {'widget': CommaSeparatedEmailWidget}
     }
@@ -138,6 +147,10 @@ class EmailAdmin(admin.ModelAdmin):
                 'fields': ['from_email', 'to', 'cc', 'bcc',
                            'priority', ('status', 'scheduled_time')],
             }),
+            ('Anymail attributes', {
+                'fields': ['anymail_message_id', 'anymail_status',
+                           'anymail_recipients','anymail_esp_response']
+            })
         ]
         has_plaintext_content, has_html_content = False, False
         for part in obj.email_message().message().walk():
@@ -197,8 +210,23 @@ class EmailAdmin(admin.ModelAdmin):
 
 
 @admin.register(Log)
-class LogAdmin(admin.ModelAdmin):
-    list_display = ('date', 'email', 'status', get_message_preview)
+class LogAdmin(AllTenantsMixin, admin.ModelAdmin):
+    list_display = ('id', 'date', 'email', 'status', 'event_type')
+    list_filter = ['issuer', 'email']
+    readonly_fields = ['date']
+    fieldsets = [
+            ('POST_OFFICE attributes', {
+                'fields': ['date','email',  'status', 'exception_type',
+                           'message'],
+            }),
+            ('Anymail attributes', {
+                'fields': ['event_type', 'reject_reason',
+                           'timestamp','event_id', 'description',
+                           'metadata', 'tags', 'mta_response', 'user_agent',
+                           'click_url','esp_event','event_dict']
+            })
+        ]
+
 
 
 class SubjectField(TextInput):
@@ -244,7 +272,7 @@ class EmailTemplateAdminForm(forms.ModelForm):
             self.fields['language'].disabled = True
 
 
-class EmailTemplateInline(admin.StackedInline):
+class EmailTemplateInline(AllTenantsMixin, admin.StackedInline):
     form = EmailTemplateAdminForm
     formset = EmailTemplateAdminFormSet
     model = EmailTemplate
@@ -259,13 +287,14 @@ class EmailTemplateInline(admin.StackedInline):
 
 
 @admin.register(EmailTemplate)
-class EmailTemplateAdmin(admin.ModelAdmin):
+class EmailTemplateAdmin(AllTenantsMixin, admin.ModelAdmin):
     form = EmailTemplateAdminForm
-    list_display = ('issuer', 'name', 'description_shortened', 'subject', 'languages_compact', 'created')
+    list_display = ('name', 'issuer', 'description_shortened', 'subject', 'languages_compact', 'created')
+    list_filter = ['issuer']
     search_fields = ('name', 'description', 'subject')
     fieldsets = [
         (None, {
-            'fields': ('issuer', 'name', 'description'),
+            'fields': ( 'name', 'description'),
         }),
         (_("Default Content"), {
             'fields': ('subject', 'content', 'context_variables', 'html_content'),
@@ -277,7 +306,7 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     }
 
     def get_queryset(self, request):
-        return self.model.objects.filter(default_template__isnull=True)
+        return super().get_queryset(request).filter(default_template__isnull=True)
 
     def description_shortened(self, instance):
         return Truncator(instance.description.split('\n')[0]).chars(200)
@@ -298,6 +327,6 @@ class EmailTemplateAdmin(admin.ModelAdmin):
 
 
 @admin.register(Attachment)
-class AttachmentAdmin(admin.ModelAdmin):
+class AttachmentAdmin(AllTenantsMixin, admin.ModelAdmin):
     list_display = ['name', 'file']
     filter_horizontal = ['emails']

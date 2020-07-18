@@ -11,15 +11,14 @@ from django.utils import timezone
 from .connections import connections
 from .models import Email, EmailTemplate, Log, PRIORITY, STATUS
 from .settings import (get_available_backends, get_batch_size,
-                       get_log_level, get_sending_order, get_threads_per_process, get_max_retries,
+                       get_default_from_email, get_log_level,
+                       get_sending_order, get_threads_per_process,
+                       get_max_retries,
                        get_retry_timedelta)
 from .utils import (get_email_template, parse_emails, parse_priority,
                     split_emails, create_attachments)
 from .logutils import setup_loghandlers
 from .signals import email_queued
-from django_multitenant.utils import get_current_tenant, set_current_tenant
-from django.utils.safestring import mark_safe
-
 
 logger = setup_loghandlers("INFO")
 
@@ -27,7 +26,7 @@ logger = setup_loghandlers("INFO")
 def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
            html_message='', context=None, scheduled_time=None, expires_at=None, headers=None,
            template=None, priority=None, render_on_delivery=False, commit=True,
-           backend='', membership_obj=None):
+           backend=''):
     """
     Creates an email from supplied keyword arguments. If template is
     specified, email subject and content will be rendered during delivery.
@@ -55,8 +54,7 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             scheduled_time=scheduled_time,
             expires_at=expires_at,
             headers=headers, priority=priority, status=status,
-            context=context, template=template, backend_alias=backend,
-            membership_obj=membership_obj
+            context=context, template=template, backend_alias=backend
         )
 
     else:
@@ -76,14 +74,13 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             to=recipients,
             cc=cc,
             bcc=bcc,
-            subject=mark_safe(subject),
+            subject=subject,
             message=message,
             html_message=html_message,
             scheduled_time=scheduled_time,
             expires_at=expires_at,
             headers=headers, priority=priority, status=status,
-            backend_alias=backend,
-            membership_obj=membership_obj
+            backend_alias=backend
         )
 
     if commit:
@@ -96,7 +93,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
          message='', html_message='', scheduled_time=None, expires_at=None, headers=None,
          priority=None, attachments=None, render_on_delivery=False,
          log_level=None, commit=True, cc=None, bcc=None, language='',
-         backend='', membership_obj=None):
+         backend=''):
     try:
         recipients = parse_emails(recipients)
     except ValidationError as e:
@@ -113,12 +110,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
         raise ValidationError('bcc: %s' % e.message)
 
     if sender is None:
-        sender = settings.POST_OFFICE_DEFAULT_DISPLAY_EMAIL
-
-    issuer = get_current_tenant()
-    if issuer and sender is None:
-        sender = issuer.default_display_email()
-
+        sender = get_default_from_email()
 
     priority = parse_priority(priority)
 
@@ -154,7 +146,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
 
     email = create(sender, recipients, cc, bcc, subject, message, html_message,
                    context, scheduled_time, expires_at, headers, template, priority,
-                   render_on_delivery, commit=commit, backend=backend, membership_obj=membership_obj)
+                   render_on_delivery, commit=commit, backend=backend)
 
     if attachments:
         attachments = create_attachments(attachments)
