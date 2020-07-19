@@ -1,4 +1,3 @@
-import json
 import os
 from collections import namedtuple
 from email.mime.nonmultipart import MIMENonMultipart
@@ -11,10 +10,9 @@ from django.db import models
 from django.utils import timezone
 from django.utils.encoding import smart_str
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
-from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from insiderlist.inbox.models import (AnymailEmailAbstractModel,
-                                      AnymailLogAbstractModel)
+from insiderlist.inbox.mixins import AnymailEmailAbstractModel, \
+    EventTypeChoices
 from insiderlist.issuers.mixins import IssuerNullableAbstractModel
 from insiderlist.utils.models.mixins import CustomAbstractModel
 from jsonfield import JSONField
@@ -27,8 +25,8 @@ from .settings import (context_field_class, get_log_level,
 from .validators import validate_email_with_name, validate_template_syntax
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
-STATUS = namedtuple('STATUS', 'sent failed queued requeued signal')._make(
-    range(5))
+STATUS = namedtuple('STATUS', 'sent failed queued requeued')._make(
+    range(4))
 
 
 class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
@@ -57,7 +55,7 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
     whether it's successfully delivered.
     """
     status = models.PositiveSmallIntegerField(
-        _("Status"),
+        _("POST_OFFICE status"),
         choices=STATUS_CHOICES, db_index=True,
         blank=True, null=True)
     priority = models.PositiveSmallIntegerField(_("Priority"),
@@ -133,9 +131,9 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
             headers = dict(self.headers or {})
             if self.expires_at:
                 headers.update({
-                                   'Expires': self.expires_at.strftime(
-                                       "%a, %-d %b %H:%M:%S %z")
-                               })
+                    'Expires': self.expires_at.strftime(
+                        "%a, %-d %b %H:%M:%S %z")
+                })
         else:
             headers = None
 
@@ -187,6 +185,7 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
         """
         Sends email and log the result.
         """
+
         try:
             msg = self.email_message()
             msg.send()
@@ -198,6 +197,10 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
             status = STATUS.failed
             message = str(e)
             exception_type = type(e).__name__
+            self.anymail_logs.create(event_type=EventTypeChoices.REJECTED,
+                                     description=f'Exception type: '
+                                                 f'{exception_type}, '
+                                                 f'Error message: {message}')
 
             # If run in a bulk sending mode, reraise and let the outer
             # layer handle the exception
@@ -222,27 +225,22 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
                                  exception_type=exception_type)
 
         if msg:
-            recipient_dict = {}
             for key, value in msg.anymail_status.recipients.items():
-                recipient_dict.update({
-                                          key: {
-                                              'status': value.status,
-                                              'message_id': value.message_id
-                                          }
-                                      })
-
+                eventype_choice = value.status.upper()
+                eventtype = EventTypeChoices[eventype_choice]
+                self.anymail_logs.create(
+                    recipient=key,
+                    message_id=value.message_id,
+                    event_type=eventtype,
+                    timestamp=timezone.now()
+                )
             self.anymail_message_id = msg.anymail_status.message_id
-            self.anymail_status = msg.anymail_status.status
-            self.anymail_recipients = recipient_dict
-            self.anymail_esp_response = msg.anymail_status.esp_response.json()
-            self.save(update_fields=['anymail_message_id', 'anymail_status',
-                                     'anymail_recipients',
-                                     'anymail_esp_response'])
+            self.save(update_fields=['anymail_message_id'])
 
         return msg
 
     def clean(self):
-        if self.scheduled_time and self.expires_at and self.scheduled_time >\
+        if self.scheduled_time and self.expires_at and self.scheduled_time > \
                 self.expires_at:
             raise ValidationError(_(
                 "The scheduled time may not be later than the expires time."))
@@ -252,18 +250,17 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
         return super().save(*args, **kwargs)
 
 
-class Log(AnymailLogAbstractModel, IssuerNullableAbstractModel,
+class Log(IssuerNullableAbstractModel,
           CustomAbstractModel, TenantModelMixin, models.Model):
     """
     A model to record sending email sending activities.
     """
 
-    STATUS_CHOICES = [(STATUS.sent, _("sent")), (STATUS.failed, _("failed")),
-                        (STATUS.signal, _("Anymail signal"))]
+    STATUS_CHOICES = [(STATUS.sent, _("sent")), (STATUS.failed, _("failed"))]
 
-    email = models.ForeignKey(Email, editable=True, related_name='logs',
-                             verbose_name=_('Email object'),
-                             on_delete=models.CASCADE, null=True)
+    email = models.ForeignKey(Email, editable=False, related_name='logs',
+                              verbose_name=_('Email object'),
+                              on_delete=models.CASCADE, null=True)
     date = models.DateTimeField(auto_now_add=True)
     status = models.PositiveSmallIntegerField(_('Status'),
                                               choices=STATUS_CHOICES)
@@ -273,13 +270,13 @@ class Log(AnymailLogAbstractModel, IssuerNullableAbstractModel,
 
     class Meta:
         app_label = 'post_office'
-        verbose_name = _("Log")
-        verbose_name_plural = _("Logs")
-        constraints = IssuerNullableAbstractModel._meta.constraints + \
-                      AnymailLogAbstractModel._meta.constraints
+        verbose_name = _("POST_OFFICE Log")
+        verbose_name_plural = _("POST_OFFICE Logs")
+        constraints = IssuerNullableAbstractModel._meta.constraints
 
     def __str__(self):
-        return str(self.date)
+        # return str(self.date)
+        return 'Log: ' + str(self.pk)
 
 
 class EmailTemplateManager(TenantManagerMixin,

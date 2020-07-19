@@ -1,5 +1,4 @@
 import re
-
 from django import forms
 from django.db import models
 from django.contrib import admin
@@ -17,8 +16,8 @@ from django.utils.text import Truncator
 from django.utils.translation import gettext_lazy as _
 
 from insiderlist.issuers.admin import AllTenantsMixin
+from insiderlist.inbox.admin import AnymailLogInline
 
-from insiderlist.memberships.models import EventMembership
 from .fields import CommaSeparatedEmailField
 from .models import Attachment, Log, Email, EmailTemplate, STATUS
 from .sanitizer import clean_html
@@ -29,10 +28,6 @@ def get_message_preview(instance):
             else instance.message)
 
 get_message_preview.short_description = 'Message'
-
-class MembershipInline(AllTenantsMixin, admin.TabularInline):
-    model = EventMembership.emails.through
-    extra = 0
 
 class AttachmentInline(AllTenantsMixin, admin.StackedInline):
     model = Attachment.emails.through
@@ -52,16 +47,24 @@ class AttachmentInline(AllTenantsMixin, admin.StackedInline):
 
 class LogInline(AllTenantsMixin, admin.TabularInline):
     model = Log
-    fields = ['id', 'date', 'status', 'event_type']
-    readonly_fields = ['date', 'status']
+    fields = ['id', 'date', 'status', 'message']
+    readonly_fields = fields
     can_delete = False
     show_change_link = True
+    view_on_site = False
+
 
     def has_add_permission(self, request, obj=None):
         return False
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+
+
+
+
 
 
 class CommaSeparatedEmailWidget(TextInput):
@@ -76,7 +79,7 @@ class CommaSeparatedEmailWidget(TextInput):
             return ''
         if isinstance(value, str):
             value = [value, ]
-        return ','.join([item for item in value])
+        return ', '.join([item for item in value])
 
 
 def requeue(modeladmin, request, queryset):
@@ -89,11 +92,13 @@ requeue.short_description = 'Requeue selected emails'
 @admin.register(Email)
 class EmailAdmin(AllTenantsMixin, admin.ModelAdmin):
     list_display = ['id', 'issuer', 'to_display', 'shortened_subject', 'status',
-                    'last_updated', 'scheduled_time', 'use_template']
+                    'last_updated', 'scheduled_time', 'use_template',
+                    'template']
     search_fields = ['to', 'subject']
-    readonly_fields = ['render_subject', 'render_plaintext_body',  'render_html_body']
+    readonly_fields = ['render_subject', 'render_plaintext_body',
+                       'render_html_body', 'template', 'list_object']
     date_hierarchy = 'last_updated'
-    inlines = [AttachmentInline, LogInline, MembershipInline]
+    inlines = [AnymailLogInline,  LogInline, AttachmentInline]
     list_filter = ['issuer', 'status', 'template__language', 'template__name']
     formfield_overrides = {
         CommaSeparatedEmailField: {'widget': CommaSeparatedEmailWidget}
@@ -145,11 +150,8 @@ class EmailAdmin(AllTenantsMixin, admin.ModelAdmin):
         fieldsets = [
             (None, {
                 'fields': ['from_email', 'to', 'cc', 'bcc',
-                           'priority', ('status', 'scheduled_time')],
-            }),
-            ('Anymail attributes', {
-                'fields': ['anymail_message_id', 'anymail_status',
-                           'anymail_recipients','anymail_esp_response']
+                           'priority', ('status', 'scheduled_time'),
+                           'anymail_message_id', 'list_object'],
             })
         ]
         has_plaintext_content, has_html_content = False, False
@@ -164,7 +166,7 @@ class EmailAdmin(AllTenantsMixin, admin.ModelAdmin):
 
         if has_html_content:
             fieldsets.append(
-                (_("HTML Email"), {'fields': ['render_subject', 'render_html_body']})
+                (_("HTML Email"), {'fields': ['template', 'render_subject', 'render_html_body']})
             )
             if has_plaintext_content:
                 fieldsets.append(
@@ -211,22 +213,7 @@ class EmailAdmin(AllTenantsMixin, admin.ModelAdmin):
 
 @admin.register(Log)
 class LogAdmin(AllTenantsMixin, admin.ModelAdmin):
-    list_display = ('id', 'date', 'email', 'status', 'event_type')
-    list_filter = ['issuer', 'email']
-    readonly_fields = ['date']
-    fieldsets = [
-            ('POST_OFFICE attributes', {
-                'fields': ['date','email',  'status', 'exception_type',
-                           'message'],
-            }),
-            ('Anymail attributes', {
-                'fields': ['event_type', 'reject_reason',
-                           'timestamp','event_id', 'description',
-                           'metadata', 'tags', 'mta_response', 'user_agent',
-                           'click_url','esp_event','event_dict']
-            })
-        ]
-
+    list_display = ('date', 'email', 'status', get_message_preview)
 
 
 class SubjectField(TextInput):

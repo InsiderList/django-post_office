@@ -7,7 +7,8 @@ class PostOfficeConfig(AppConfig):
     verbose_name = _("Post Office")
 
     def ready(self):
-        pass
+        from actstream import registry
+        registry.register(self.get_model('Email'))
         # from post_office.signals import email_queued
 
         # TODO: This signal causes mail.send() to hang, so disable for
