@@ -19,6 +19,7 @@ from jsonfield import JSONField
 from post_office import cache
 from post_office.fields import CommaSeparatedEmailField
 
+
 from .connections import connections
 from .settings import (context_field_class, get_log_level,
                        get_override_recipients, get_template_engine)
@@ -225,15 +226,20 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
                                  exception_type=exception_type)
 
         if msg:
+            from insiderlist.inbox.models import AnymailLog
+            anymail_log_list = []
             for key, value in msg.anymail_status.recipients.items():
                 eventype_choice = value.status.upper()
                 eventtype = EventTypeChoices[eventype_choice]
-                self.anymail_logs.create(
+                anymail_log_obj = AnymailLog(
+                    email=self,
                     recipient=key,
                     message_id=value.message_id,
                     event_type=eventtype,
                     timestamp=timezone.now()
                 )
+                anymail_log_list.append(anymail_log_obj)
+            AnymailLog.objects.bulk_create(anymail_log_list)
             self.anymail_message_id = msg.anymail_status.message_id
             self.save(update_fields=['anymail_message_id'])
 

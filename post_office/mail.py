@@ -26,7 +26,7 @@ logger = setup_loghandlers("INFO")
 def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
            html_message='', context=None, scheduled_time=None, expires_at=None, headers=None,
            template=None, priority=None, render_on_delivery=False, commit=True,
-           backend=''):
+           backend='', list_object=None, issuer=None):
     """
     Creates an email from supplied keyword arguments. If template is
     specified, email subject and content will be rendered during delivery.
@@ -54,7 +54,8 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             scheduled_time=scheduled_time,
             expires_at=expires_at,
             headers=headers, priority=priority, status=status,
-            context=context, template=template, backend_alias=backend
+            context=context, template=template, backend_alias=backend,
+            list_object=list_object, issuer=issuer
         )
 
     else:
@@ -80,7 +81,8 @@ def create(sender, recipients=None, cc=None, bcc=None, subject='', message='',
             scheduled_time=scheduled_time,
             expires_at=expires_at,
             headers=headers, priority=priority, status=status,
-            backend_alias=backend
+            backend_alias=backend,
+            list_object=list_object, issuer=issuer
         )
 
     if commit:
@@ -93,7 +95,7 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
          message='', html_message='', scheduled_time=None, expires_at=None, headers=None,
          priority=None, attachments=None, render_on_delivery=False,
          log_level=None, commit=True, cc=None, bcc=None, language='',
-         backend=''):
+         backend='', list_object=None, issuer=None):
     try:
         recipients = parse_emails(recipients)
     except ValidationError as e:
@@ -146,7 +148,8 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
 
     email = create(sender, recipients, cc, bcc, subject, message, html_message,
                    context, scheduled_time, expires_at, headers, template, priority,
-                   render_on_delivery, commit=commit, backend=backend)
+                   render_on_delivery, commit=commit, backend=backend,
+                   list_object=list_object, issuer=issuer)
 
     if attachments:
         attachments = create_attachments(attachments)
@@ -169,8 +172,9 @@ def send_many(kwargs_list):
     for kwargs in kwargs_list:
         emails.append(send(commit=False, **kwargs))
     if len(emails) > 0:
-        Email.objects.bulk_create(emails)
+        created_emails = Email.objects.bulk_create(emails)
         email_queued.send(sender=Email, emails=emails)
+        return created_emails
 
 
 def get_queued():
