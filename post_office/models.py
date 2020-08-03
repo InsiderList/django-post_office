@@ -232,6 +232,7 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
                 eventype_choice = value.status.upper()
                 eventtype = EventTypeChoices[eventype_choice]
                 anymail_log_obj = AnymailLog(
+                    issuer=self.issuer,
                     email=self,
                     recipient=key,
                     message_id=value.message_id,
