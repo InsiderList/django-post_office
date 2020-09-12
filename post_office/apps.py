@@ -9,6 +9,7 @@ class PostOfficeConfig(AppConfig):
     def ready(self):
         from actstream import registry
         registry.register(self.get_model('Email'))
+        registry.register(self.get_model('EmailTemplate'))
         # from post_office.signals import email_queued
 
         # TODO: This signal causes mail.send() to hang, so disable for
