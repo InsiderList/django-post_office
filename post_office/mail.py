@@ -157,7 +157,9 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
 
     if priority == PRIORITY.now:
         email.dispatch(log_level=log_level)
+    print('xxx')
     email_queued.send(sender=Email, emails=[email])
+    print('yyy')
 
     return email
 
@@ -168,12 +170,21 @@ def send_many(kwargs_list):
     Internally, it uses Django's bulk_create command for efficiency reasons.
     Currently send_many() can't be used to send emails with priority = 'now'.
     """
+    print('ss1')
     emails = []
     for kwargs in kwargs_list:
+        print('kw', kwargs)
         emails.append(send(commit=False, **kwargs))
+    print('vvvv')
+    print(emails)
     if len(emails) > 0:
+        print('******')
+        print(emails)
         created_emails = Email.objects.bulk_create(emails)
+        print('aaaaaa')
+        print(created_emails)
         email_queued.send(sender=Email, emails=emails)
+        print('email created')
         return created_emails
 
 

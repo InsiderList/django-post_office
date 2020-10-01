@@ -10,7 +10,12 @@ class PostOfficeConfig(AppConfig):
         from actstream import registry
         registry.register(self.get_model('Email'))
         registry.register(self.get_model('EmailTemplate'))
-        # from post_office.signals import email_queued
+
+        from post_office import tasks
+        from post_office.signals import email_queued
+
+        if hasattr(tasks, 'queued_mail_handler'):
+            email_queued.connect(tasks.queued_mail_handler)
 
         # TODO: This signal causes mail.send() to hang, so disable for
         #  now as it's unusued

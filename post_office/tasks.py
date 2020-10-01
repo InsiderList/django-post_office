@@ -16,12 +16,18 @@ except ImportError:
 else:
     @shared_task(ignore_result=True)
     def send_queued_mail(*args, **kwargs):
+        """
+        Celery task
+        """
+        print('send called')
         send_queued()
 
     def queued_mail_handler(sender, **kwargs):
         """
         To be called by post_office.signals.email_queued.send()
+        Use celery .delay() to  call task asyncronously
         """
+        print('que called')
         send_queued_mail.delay()
 
     @shared_task(ignore_result=True)
