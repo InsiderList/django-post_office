@@ -3,7 +3,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import connection as db_connection
+from django.db import connection as db_connection, transaction
 from django.db.models import Q
 from django.template import Context, Template
 from django.utils import timezone
@@ -157,9 +157,8 @@ def send(recipients=None, sender=None, template=None, context=None, subject='',
 
     if priority == PRIORITY.now:
         email.dispatch(log_level=log_level)
-    print('xxx')
+
     email_queued.send(sender=Email, emails=[email])
-    print('yyy')
 
     return email
 
@@ -169,22 +168,15 @@ def send_many(kwargs_list):
     Similar to mail.send(), but this function accepts a list of kwargs.
     Internally, it uses Django's bulk_create command for efficiency reasons.
     Currently send_many() can't be used to send emails with priority = 'now'.
+
+    https://github.com/ui/django-post_office/issues/336
     """
-    print('ss1')
     emails = []
     for kwargs in kwargs_list:
-        print('kw', kwargs)
         emails.append(send(commit=False, **kwargs))
-    print('vvvv')
-    print(emails)
     if len(emails) > 0:
-        print('******')
-        print(emails)
         created_emails = Email.objects.bulk_create(emails)
-        print('aaaaaa')
-        print(created_emails)
         email_queued.send(sender=Email, emails=emails)
-        print('email created')
         return created_emails
 
 
@@ -194,6 +186,8 @@ def get_queued():
      - Status is queued or requeued
      - Has scheduled_time before the current time or is None
      - Has expires_at after the current time or is None
+
+     https://github.com/ui/django-post_office/pull/338/files
     """
     now = timezone.now()
     query = (
@@ -202,10 +196,13 @@ def get_queued():
         (Q(expires_at__gt=now) | Q(expires_at__isnull=True))
     )
     return Email.objects.filter(query) \
+                .select_for_update(skip_locked=True, of=('self',)) \
+                .filter(query) \
                 .select_related('template') \
-                .order_by(*get_sending_order()).prefetch_related('attachments')[:get_batch_size()]
+                .order_by(*get_sending_order()) \
+                .prefetch_related('attachments')[:get_batch_size()]
 
-
+@transaction.atomic
 def send_queued(processes=1, log_level=None):
     """
     Sends out all queued mails that has scheduled_time less than now or None
@@ -254,6 +251,10 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
     # Multiprocessing does not play well with database connection
     # Fix: Close connections on forking process
     # https://groups.google.com/forum/#!topic/django-users/eCAIY9DAfG0
+    print('*****')
+    print('*****')
+    print('BULK')
+    print('*****')
     if uses_multiprocessing:
         db_connection.close()
 
@@ -268,9 +269,12 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
 
     def send(email):
         try:
+            print('SEEEND DEFINITION', email)
             email.dispatch(log_level=log_level, commit=False,
                            disconnect_after_delivery=False)
+            print('email dispatch')
             sent_emails.append(email)
+            print('sent_emails', sent_emails)
             logger.debug('Successfully sent email #%d' % email.id)
         except Exception as e:
             logger.debug('Failed to send email #%d' % email.id)
@@ -289,7 +293,9 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
     number_of_threads = min(get_threads_per_process(), email_count)
     pool = ThreadPool(number_of_threads)
 
+    print('POOL SEND')
     pool.map(send, emails)
+    print('POOL CLOSE')
     pool.close()
     pool.join()
 
@@ -297,7 +303,13 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
 
     # Update statuses of sent emails
     email_ids = [email.id for email in sent_emails]
+    print('EMAIL IDS', email_ids)
     Email.objects.filter(id__in=email_ids).update(status=STATUS.sent)
+
+    print('*****')
+    print('*****')
+    print('SENT')
+    print('*****')
 
     # Update statuses and conditionally requeue failed emails
     num_failed, num_requeued = 0, 0

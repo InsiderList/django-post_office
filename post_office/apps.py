@@ -17,7 +17,3 @@ class PostOfficeConfig(AppConfig):
         if hasattr(tasks, 'queued_mail_handler'):
             email_queued.connect(tasks.queued_mail_handler)
 
-        # TODO: This signal causes mail.send() to hang, so disable for
-        #  now as it's unusued
-        # if hasattr(tasks, 'queued_mail_handler'):
-            # email_queued.connect(tasks.queued_mail_handler)
