@@ -251,10 +251,6 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
     # Multiprocessing does not play well with database connection
     # Fix: Close connections on forking process
     # https://groups.google.com/forum/#!topic/django-users/eCAIY9DAfG0
-    print('*****')
-    print('*****')
-    print('BULK')
-    print('*****')
     if uses_multiprocessing:
         db_connection.close()
 
@@ -269,12 +265,9 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
 
     def send(email):
         try:
-            print('SEEEND DEFINITION', email)
             email.dispatch(log_level=log_level, commit=False,
                            disconnect_after_delivery=False)
-            print('email dispatch')
             sent_emails.append(email)
-            print('sent_emails', sent_emails)
             logger.debug('Successfully sent email #%d' % email.id)
         except Exception as e:
             logger.debug('Failed to send email #%d' % email.id)
@@ -293,9 +286,7 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
     number_of_threads = min(get_threads_per_process(), email_count)
     pool = ThreadPool(number_of_threads)
 
-    print('POOL SEND')
     pool.map(send, emails)
-    print('POOL CLOSE')
     pool.close()
     pool.join()
 
@@ -303,13 +294,7 @@ def _send_bulk(emails, uses_multiprocessing=True, log_level=None):
 
     # Update statuses of sent emails
     email_ids = [email.id for email in sent_emails]
-    print('EMAIL IDS', email_ids)
     Email.objects.filter(id__in=email_ids).update(status=STATUS.sent)
-
-    print('*****')
-    print('*****')
-    print('SENT')
-    print('*****')
 
     # Update statuses and conditionally requeue failed emails
     num_failed, num_requeued = 0, 0

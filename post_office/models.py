@@ -193,7 +193,6 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
             status = STATUS.sent
             message = ''
             exception_type = ''
-            print('msg sent')
         except Exception as e:
             msg = None
             status = STATUS.failed
@@ -210,7 +209,6 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
                 raise
 
         if commit:
-            print('COMMIT IF')
             self.status = status
             self.save(update_fields=['status'])
 
@@ -228,7 +226,6 @@ class Email(AnymailEmailAbstractModel, IssuerNullableAbstractModel,
                                  exception_type=exception_type)
 
         if msg and commit:
-            print('MSG IF')
             from insiderlist.inbox.models import AnymailLog
             anymail_log_list = []
             for key, value in msg.anymail_status.recipients.items():
